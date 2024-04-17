@@ -1111,7 +1111,182 @@ df_scaled <- as.data.frame(scale(df_numerici))
 # Aggiungi le colonne non numeriche al dataframe standardizzato
 df_scaled <- cbind(df[, -(5:14)], df_scaled)
 
-head(df)
+head(df_scaled)
+
+# Converti i valori di NI = 1, AB21 = 2, AB1 = 3
+# Assegna i valori desiderati alla colonna Inoculum
+df_scaled$inoculum <- ifelse(df_scaled$inoculum == "NI", 1,
+                              ifelse(df_scaled$inoculum == "AB21", 2,
+                                     ifelse(df_scaled$inoculum == "AB1", 3, df_scaled$inoculum)))
+
+
+# Elimina i dari mancanti altrimenti non funziona la multivariata
+
+df=na.omit(df)
+
+df_scaled=na.omit(df_scaled)
+
+```
+
+```{r}
+library(faraway)
+library(corrplot)
+cor <- cor(df_scaled[, -(1:4)], use = "complete.obs")
+
+cor
+
+# Visualizza la correlazione
+corrplot(cor, method = "color", type = "upper", 
+         tl.col = "black", tl.srt = 45, tl.cex = 0.7, 
+         addCoef.col = "black", number.cex = 0.45)
+
+vif <- faraway::vif(df_scaled[, -(1:4)])
+
+vif
+
+
+```
+
+```{r}
+# Effettua il test di Kaiser per vedere se e quanto il nostro dataset è adattabile alla multivariata
+EFAtools::KMO(df_scaled[, -(1:4)], use = "na.or.complete" ,cor_method = "kendall")
+```
+
+```{r}
+library(MASS)
+
+# Esegue la PCA
+pca_result <- princomp(df[, -(1:4)], cor = TRUE)
+
+plot(pca_result)
+
+pca_result$sdev^2
+
+pca_result
+```
+
+```{r}
+# Prendiamo gli autovalori
+autovalori=pca_result$sdev^2
+var_tot=sum(autovalori)
+proportion=(autovalori/var_tot)*100
+n_var=c(1:length(autovalori))
+plot(n_var,autovalori, type="b")
+```
+
+```{r}
+# Prendiamo gli scores direttamente dalla funzione
+library(ggplot2)
+
+# Creo un oggetto dove ho la razza e le componenti principali
+PCAscores=data.frame(Inoculum=df$inoculum,pca_result$scores)
+
+ggplot(PCAscores,aes(x=Comp.1,y=Comp.2,col=Inoculum)) + geom_point()
+```
+
+```{r}
+# Rimozione delle variabili collinerari
+
+library(car)
+library(fmsb)
+
+# Creazione di un vettore per memorizzare i VIF
+vif_values <- numeric()
+
+# Iterazione su ciascuna variabile indipendente per calcolare il VIF
+for (i in 2:ncol(df_vars)) {
+  formula <- as.formula(paste(names(df_vars)[i], "~ ."))
+  model <- lm(formula, data = df_vars)
+  vif_values <- c(vif_values, vif(model))
+}
+
+# Visualizzazione dei risultati
+names(vif_values) <- names(df_vars)[-1]
+vif_values
+
+
+
+```
+
+```{r}
+# # Imposta il seme casuale per riproducibilità
+# set.seed(123)
+# 
+# # Numero totale di righe nel dataframe
+# n_totale <- nrow(df_scaled)
+# 
+# # Numero di righe per il set di addestramento (80%)
+# n_train <- round(0.8 * n_totale)
+# 
+# # Indici casuali per selezionare le righe del set di addestramento
+# indici_train <- sample(1:n_totale, n_train, replace = FALSE)
+# 
+# # Crea il set di addestramento
+# train <- df_scaled[indici_train, ]
+# 
+# # Crea il set di test selezionando le righe non presenti nel set di addestramento
+# test <- df_scaled[-indici_train, ]
+# 
+# train$inoculum=as.factor(train$inoculum)
+# 
+# table(train$inoculum)
+
+```
+
+```{r}
+# Imposta il seme casuale per riproducibilità
+set.seed(123)
+
+# Numero di righe per ogni classe di inoculum nel set di addestramento
+n_per_classe <- ceiling(n_train / length(unique(df_scaled$inoculum)))
+
+# Funzione per selezionare le righe in modo casuale ed equilibrato per ciascuna classe
+sample_equilibrato <- function(data, n) {
+  sample_rows <- unlist(lapply(unique(data$inoculum), function(x) {
+    idx <- which(data$inoculum == x)
+    sample(idx, min(n, length(idx)), replace = FALSE)
+  }))
+  return(data[sample_rows, ])
+}
+
+# Crea il set di addestramento equilibrato
+train <- sample_equilibrato(df_scaled, n_per_classe)
+
+# Crea il set di test selezionando le righe non presenti nel set di addestramento
+test <- df_scaled[!rownames(df_scaled) %in% rownames(train), ]
+
+train$inoculum=as.factor(train$inoculum)
+
+table(train$inoculum)
+```
+
+```{r}
+library(pls)
+
+train$inoculum <- as.numeric(train$inoculum)
+
+reg_plsr <- plsr(inoculum ~., data = train[, -c(1, 3, 4)], validation = "LOO")
+
+summary(reg_plsr)
+```
+
+```{r}
+plot(RMSEP(reg_plsr), legendpos = "topright")
+
+npc_plsr <- which.min(RMSEP(reg_plsr)$val[1,,])-1
+
+npc_plsr
+
+```
+
+```{r}
+t_pred_pls <- predict(reg_plsr, ncomp = npc_plsr)
+```
+
+```{r}
+library(MASS)
+# analisi discriminante lineare
+train_lda=lda(inoculum ~ ., data=train[, -c(1, 3, 4)])
 ```
 
 ```{r}
