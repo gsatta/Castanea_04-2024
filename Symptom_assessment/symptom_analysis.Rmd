@@ -1,0 +1,174 @@
+---
+title: "Symptoms_analysis"
+author: "Gabriele Giuseppe Antonio Satta"
+date: "2023-11-03"
+output: html_document
+---
+
+```{r}
+# Carica i pacchetti neccessari
+library(readr)
+library(dplyr)
+```
+
+```{r}
+# Carica il dataframe dei dati delle schede di valutazione dei sintomi
+dataframe <- read_delim("G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/Symptom_assessment_modified.csv", delim = ";")
+```
+
+```{r}
+# Trasforma il dataframe da wide a long
+df_long <- tidyr::pivot_longer(dataframe, 
+                               cols = starts_with("16/06/2023"):starts_with("21/09/2023"),
+                               names_to = "Date",
+                               values_to = "Class")
+
+# Converti la colonna Date in formato data
+df_long$Date <- as.Date(df_long$Date, format = "%d/%m/%Y")
+
+# Converti le date in numero di giorni
+df_long$Days <- as.numeric(df_long$Date - min(df_long$Date))
+
+# Calcola la media di Class per ogni combinazione di Inoculum, Treatment e Days
+df_summary <- df_long %>%
+  group_by(Inoculum, Treatment, Days) %>%
+  summarize(mean_class = mean(Class)) %>%
+  ungroup()
+
+# Scrivi il dataframe sommario in un file CSV
+write_csv(df_summary, "G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/DATAFRAME/df_summary_modified.csv")
+```
+
+```{r}
+# Ripulisci l'enviroment di R
+rm(list=ls())
+```
+
+```{r}
+df_summary <- read_csv("G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/DATAFRAME/df_summary_modified.csv")
+
+# Crea un elenco di inoculi e trattamenti unici
+inocula <- unique(df_summary$Inoculum)
+trattamenti <- unique(df_summary$Treatment)
+```
+
+```{r}
+# Carica la libreria ggplot2
+library(ggplot2)
+
+# Crea una lista di grafici, uno per ogni inoculum
+plots <- lapply(unique(df_summary$Inoculum), function(inoculum) {
+  # Filtra il dataframe per l'inoculum corrente
+  df_inoculum <- df_summary[df_summary$Inoculum == inoculum,]
+  
+  # Crea il grafico
+  p <- ggplot(df_inoculum, aes(x = Days, y = mean_class, color = Treatment)) +
+    geom_step(linewidth = 1) +# se inserisco geom_line() / geom_step(), le linee non sono quadrate
+    labs(title = paste("Inoculum:", inoculum),
+         x = "Days",
+         y = "Mean Class") +
+    ylim(0, 4)
+  
+  return(p)
+})
+
+# Stampa i grafici
+for (p in plots) {
+  print(p)
+}
+
+# Carica la libreria gridExtra
+library(gridExtra)
+
+# Crea un layout di griglia con i grafici
+grid_plot <- do.call(gridExtra::grid.arrange, c(plots, ncol = 2))
+
+# Salva il layout di griglia come file PNG
+ggsave("G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/GRAFICI/MODIFICHE/mean_class_graph1.png", grid_plot, width = 16, height = 12, dpi = 700)
+```
+
+```{r}
+# Ripulisci l'enviroment di R
+rm(list=ls())
+```
+
+```{r}
+df_summary <- read_csv("G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/DATAFRAME/df_summary_modified.csv")
+
+library(dplyr)
+
+df_filtered <- df_summary %>%
+  filter(Days <= 82)
+
+```
+
+```{r}
+# Carica la libreria ggplot2
+library(ggplot2)
+
+# Crea una lista di grafici, uno per ogni inoculum
+plots <- lapply(unique(df_filtered$Inoculum), function(inoculum) {
+  # Filtra il dataframe per l'inoculum corrente
+  df_inoculum <- df_filtered[df_filtered$Inoculum == inoculum,]
+  
+  # Crea il grafico
+  p <- ggplot(df_inoculum, aes(x = Days, y = mean_class, color = Treatment)) +
+    geom_step(linewidth = 1) +# se inserisco geom_line() / geom_step(), le linee non sono quadrate
+    labs(title = paste("Inoculum:", inoculum),
+         x = "Days",
+         y = "Mean Class") +
+    ylim(0, 4)
+  
+  return(p)
+})
+
+# Stampa i grafici
+for (p in plots) {
+  print(p)
+}
+
+# Carica la libreria gridExtra
+library(gridExtra)
+
+# Crea un layout di griglia con i grafici
+grid_plot <- do.call(gridExtra::grid.arrange, c(plots, ncol = 2))
+
+# Salva il layout di griglia come file PNG
+ggsave("G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/GRAFICI/MODIFICHE/mean_class_graph4.png", grid_plot, width = 16, height = 12, dpi = 700)
+```
+
+```{r}
+# Estrai da df_summary i valori che hanno un Days<=82 ed eilima i record con Treatment = Ridomil
+df_filtered2 <- df_summary[df_summary$Days <= 82 & df_summary$Treatment != "Ridomil", ]
+
+# Crea una lista di grafici, uno per ogni inoculum
+plots <- lapply(unique(df_filtered2$Inoculum), function(inoculum) {
+  # Filtra il dataframe per l'inoculum corrente
+  df_inoculum <- df_filtered2[df_filtered2$Inoculum == inoculum,]
+  
+  # Crea il grafico
+  p <- ggplot(df_inoculum, aes(x = Days, y = mean_class, color = Treatment)) +
+    geom_step(linewidth = 1) +# se inserisco geom_line() / geom_step(), le linee non sono quadrate
+    labs(title = paste("Inoculum:", inoculum),
+         x = "Days",
+         y = "Mean Class") +
+    ylim(0, 4)
+  
+  return(p)
+})
+
+# Stampa i grafici
+for (p in plots) {
+  print(p)
+}
+
+# Carica la libreria gridExtra
+library(gridExtra)
+
+# Crea un layout di griglia con i grafici
+grid_plot <- do.call(gridExtra::grid.arrange, c(plots, ncol = 2))
+
+# Salva il layout di griglia come file PNG
+ggsave("G:/Altri computer/Il_mio_computer/DOTTORATO/PROGETTI/FAGESOS_MONTE ARCOSU/SCRIPT_R/Treatment_Castanea/Symptom_assessment/GRAFICI/MODIFICHE/mean_class_graph7.png", grid_plot, width = 16, height = 12, dpi = 700)
+
+```
