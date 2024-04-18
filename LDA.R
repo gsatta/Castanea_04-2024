@@ -1,10 +1,11 @@
 # Voglio fare una LDA per ogni inoculum
-
+{
 library(readr)
 library(dplyr)
 library(ggplot2)
 library(MASS)
 library(dplyr)
+library(gridExtra)
 
 # passiamo a notazione numerica
 options(scipen=999)
@@ -60,31 +61,37 @@ df=na.omit(df)
 
 df_scaled=na.omit(df_scaled)
 
+}
+
+# library(GGally)
+# 
+# ggscatmat(df_scaled, columns = 5:14, color = "inoculum")
+# 
+# 
+# ggscatmat(df_scaled, columns = 5:14, color = "treatment")
+
+
 ###############################
 
-ni_df <- subset(df_scaled, inoculum == "NI")
+inocula <- unique(df_scaled$inoculum)
+df_list_inc <- list()
 
-ni_df$inoculum <- NULL
+for (i in inocula) {
+  temp_df <- subset(df_scaled, inoculum == i)
+  temp_df$inoculum <- NULL
+  df_list_inc[[i]] <- temp_df
+}
 
-ab21_df <- subset(df_scaled, inoculum == "AB21") 
-
-ab21_df$inoculum <- NULL
-
-ab1_df <- subset(df_scaled, inoculum == "AB1") 
-
-ab1_df$inoculum <- NULL
+lda_plots_list_in <- list()
 
 ######
 library(mda)
 library(ggalt)
 
-# Definisci la lista dei dataframe
-df_list <- list(ni_df = ni_df, ab21_df = ab21_df, ab1_df = ab1_df)
-
 # Ciclo for per eseguire le operazioni su ciascun dataframe
-for (df_name in names(df_list)) {
+for (i in names(df_list_inc)) {
   # Ottieni il dataframe corrente
-  df <- df_list[[df_name]]
+  df <- df_list_inc[[df_name]]
   
   # Rimuovi la colonna 'inoculum'
   df$inoculum <- NULL
@@ -113,7 +120,7 @@ for (df_name in names(df_list)) {
     ggtitle(paste("PCA", df_name_clean, "Plot"))
   
   # Esegui LDA
-  lda_result <- lda(treatments ~ ., data = pca_scores[, -c(10:11)])
+  lda_result <- lda(treatments ~ ., data = pca_scores[, c(1:10)])
   
   # Assegna i valori predetti
   pred_lda <- predict(lda_result, dimen = 4)
@@ -129,56 +136,60 @@ for (df_name in names(df_list)) {
     ggtitle(paste(df_name_clean, "- Linear Discriminant Analysis (LDA)")) +
    
      theme(legend.position = "right")  # Nascondi la legenda
+  
+  # Salva il grafico LDA nella lista
+  lda_plots_list_in[[i]] <- lda_ggplot
+  
   # Salva il grafico LDA in locale
   ggsave(filename = paste0("./GRAPHS/LDA/INOCULUM/", df_name_clean, "_LDA_plot.png"), plot = lda_ggplot, width = 8, height = 6)
   
   # Salva il grafico PDA in locale
   ggsave(filename = paste0("./GRAPHS/PCA/INOCULUM/", df_name_clean, "_PCA_plot.png"), plot = PCA_ggplot, width = 8, height = 6)
   
-  # Stampare esplicitamente il grafico LDA
+  # Stampare esplicitamente il grafico PCA e LDA
+  print(PCA_ggplot)
   print(lda_ggplot)
 }
 
+# Organizza i grafici LDA in una griglia
+lda_grid_in <- do.call(grid.arrange, lda_plots_list_in)
+
+# Salva il grafico della griglia LDA
+ggsave(filename = "./GRAPHS/LDA/INOCULUM/LDA_inoculum.png", plot = lda_grid_in, width = 15, height = 12)
+
 ##################################
-# LDA FOR INOCULUM
+# LDA FOR TREATMENTS
 #############################
 
 # Creare una lista vuota per memorizzare i dataframe
+treatment <- unique(df_scaled$treatment)
 df_list_treat <- list()
 
 # Ciclo attraverso ogni trattamento unico
-for (treatment in unique(df_scaled$treatment)) {
-  # Crea un nuovo dataframe per il trattamento corrente
-  treatment_df <- subset(df_scaled, treatment == treatment)
-  
-  # Rimuovi la colonna 'treatment' se il nome del trattamento contiene il carattere '+'
-  if ("+" %in% treatment) {
-    treatment_df <- treatment_df[, !grepl("\\+", names(treatment_df))]
-  }
-  
-  # Aggiungi il suffisso '_df' al nome del trattamento
-  treatment_df_name <- paste0(treatment, "_df")
-  
-  # Assegna il nuovo dataframe alla lista
-  df_list_treat[[treatment_df_name]] <- treatment_df
+for (i in treatment) {
+  temp_df <- subset(df_scaled, treatment == i)
+  temp_df$treatment <- NULL
+  df_list_treat[[i]] <- temp_df
 }
 
-# Ora df_list_treat contiene i dataframe con le operazioni desiderate eseguite su ciascun trattamento
+# Inizializza una lista per memorizzare i grafici LDA
+lda_plots_list_treat <- list()
 
 ######
 library(mda)
 library(ggalt)
 
 # Ciclo for per eseguire le operazioni su ciascun dataframe
-for (df_name in names(df_list_treat)) {
+for (i in seq_along(df_list_treat)) {
   # Ottieni il dataframe corrente
+  df_name <- names(df_list_treat)[i]
   df <- df_list_treat[[df_name]]
   
-  # Rimuovi la colonna 'inoculum'
+  # Rimuovi la colonna 'treatment'
   df$treatment <- NULL
   
   # Effettua il test di Kaiser
-  print(EFAtools::KMO(df[, -(1:3)], use = "na.or.complete", cor_method = "kendall"))
+  # print(EFAtools::KMO(df[, -(1:3)], use = "na.or.complete", cor_method = "kendall"))
   
   # Esegue la PCA
   pca <- princomp(df[, -(1:3)], cor = TRUE)
@@ -201,7 +212,7 @@ for (df_name in names(df_list_treat)) {
     ggtitle(paste("PCA", df_name_clean, "Plot"))
   
   # Esegui LDA
-  lda_result <- lda(inoculum ~ ., data = pca_scores[, -c(10:11)])
+  lda_result <- lda(inoculum ~ ., data = pca_scores[, c(1:10)])
   
   # Assegna i valori predetti
   pred_lda <- predict(lda_result, dimen = 4)
@@ -217,13 +228,23 @@ for (df_name in names(df_list_treat)) {
     ggtitle(paste(df_name_clean, "- Linear Discriminant Analysis (LDA)")) +
     
     theme(legend.position = "right")  # Nascondi la legenda
-  # Salva il grafico LDA in locale
-  ggsave(filename = paste0("./GRAPHS/LDA/TREATMENT/", df_name_clean, "_LDA_plot.png"), plot = lda_ggplot, width = 8, height = 6)
   
-  ggsave(filename = paste0("./GRAPHS/PCA/TREATMENT/", df_name_clean, "_PCA_plot.png"), plot = PCA_ggplot, width = 8, height = 6)
+  # Salva il grafico LDA nella lista
+  lda_plots_list_treat[[i]] <- lda_ggplot
+  
+  # Salva il grafico LDA in locale
+  ggsave(filename = paste0("./GRAPHS/LDA/TREATMENT/", df_name_clean, "_LDA_plot_", i, ".png"), plot = lda_ggplot, width = 8, height = 6)
+  
+  ggsave(filename = paste0("./GRAPHS/PCA/TREATMENT/", df_name_clean, "_PCA_plot_", i, ".png"), plot = PCA_ggplot, width = 8, height = 6)
   
   # Stampare esplicitamente il grafico LDA
   print(lda_ggplot)
 }
+
+# Organizza i grafici LDA in una griglia
+lda_grid_treat <- do.call(grid.arrange, lda_plots_list_treat)
+
+# Salva il grafico della griglia LDA
+ggsave(filename = "./GRAPHS/LDA/TREATMENT/LDA_treatments.png", plot = lda_grid_treat, width = 15, height = 12)
 
 
