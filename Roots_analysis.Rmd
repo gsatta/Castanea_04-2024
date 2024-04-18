@@ -149,7 +149,7 @@ rm(list=ls())
 
 # Roots analysis
 
-## Get the data 
+## Get the data
 
 In this section, the data set is loaded into R and file preparation begins.
 
@@ -1082,8 +1082,10 @@ result_df$...1 <- NULL
 result_df$plant <- as.character(result_df$plant)
 
 result_df <- result_df %>%
-  mutate(combination = paste(inoculum, treatment, sep = "-")) %>%
-  select(plant, inoculum, treatment, combination, everything())
+  mutate(combination = paste(inoculum, treatment, sep = "-"))
+
+result_df <- result_df %>%
+  relocate(combination, .before = length)
 
 # Crea un nuovo dataframe uguale al precedente
 df <- result_df
@@ -1131,7 +1133,7 @@ df_scaled=na.omit(df_scaled)
 ```{r}
 library(faraway)
 library(corrplot)
-cor <- cor(df_scaled[, -(1:4)], use = "complete.obs")
+cor <- cor(df[, -(1:4)], use = "complete.obs")
 
 cor
 
@@ -1140,7 +1142,7 @@ corrplot(cor, method = "color", type = "upper",
          tl.col = "black", tl.srt = 45, tl.cex = 0.7, 
          addCoef.col = "black", number.cex = 0.45)
 
-vif <- faraway::vif(df_scaled[, -(1:4)])
+vif <- faraway::vif(df[, -(1:4)])
 
 vif
 
